@@ -10,18 +10,16 @@ class Level extends Model
 
     protected $fillable = [
         'player_id',
-        'game_code',
         'level',
-     
     ];
 
     public function player()
     {
-        return $this->belongsTo(Player::class, 'player_id', 'id');
+        return $this->belongsTo(Player::class, 'player_id'); // Corrected foreign key reference
     }
 
-    public function game()
+    public function level()
     {
-        return $this->belongsTo(Game::class, 'game_code', 'code');
+        return $this->belongsTo(Leveling::class, 'level'); // Corrected foreign key reference
     }
 }

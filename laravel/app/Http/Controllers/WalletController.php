@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Level;
 use App\Models\Player;
 use App\Models\Wallet;
 use App\Models\WalletKey;
@@ -35,137 +36,135 @@ class WalletController extends Controller
             $playerId = Auth::id();
 
             $player = Player::find($playerId);
-                if($delivery !== 'order' && $delivery !== 'success'){
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'param not valid',
-                    ], 422);
+            if ($delivery !== 'order' && $delivery !== 'success') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'param not valid',
+                ], 422);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'signature' => 'required',
+                'key' => 'required',
+                'level' => 'required'
+            ]);
+
+            if ($validator->fails()) {
+                $errors = $validator->errors();
+                $formattedErrors = [];
+
+                foreach ($errors->keys() as $key) {
+                    $formattedErrors[] = [
+                        'key' => $key,
+                        'value' => $errors->first($key),
+                    ];
                 }
 
-                $validator = Validator::make($request->all(), [
-                    'signature' => 'required',
-                     'key' => 'required'
-                ]);
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $formattedErrors,
+                    'error_code' => 'INPUT_VALIDATION_ERROR',
+                ], 422);
+            }
+            $signature = $this->decrypt($request->signature);
+            // dd($signature);
 
-                if ($validator->fails()) {
-                    $errors = $validator->errors();
-                    $formattedErrors = [];
+            if ($signature === false) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => [['status' => 'error', 'value' => 'access denied']],
+                    'error_code' => 'ACCESS_DENIED',
+                ], 404);
+            } else {
+                $amount = (int)$signature;
+                if ($request->delivery == "order") {
+                    // Cek jika amount tidak minus (positif atau 0)
+                    if ($amount >= 0) {
+                        return response()->json([
+                            'error' => 'Amount harus bernilai negatif (minus).'
+                        ], 400); // Mengembalikan HTTP status code 400 (Bad Request)
+                    } else {
+                        $key = md5($request->key);
 
-                    foreach ($errors->keys() as $key) {
-                        $formattedErrors[] = [
-                            'key' => $key,
-                            'value' => $errors->first($key),
-                        ];
+                        $codeExist = WalletKey::where('key', $key)->first();
+
+                        if (!$codeExist) {
+                            $storeKey = WalletKey::create([
+                                'player_id' => $playerId,
+                                'key' => $key
+                            ]);
+                            $wallet = Wallet::create([
+                                'player_id' => $playerId,
+                                'amount' => $amount,
+                                'currency_code' => "IDR",
+                                // 'is_play' => false,
+                            ]);
+
+                            return response()->json([
+                                'status' => 'success',
+                                'message' => [['status' => 'success', 'value' => 'sucessfully order']]
+                                // 'data' => $wallet,
+                            ], 201);
+                        } else {
+                            return response()->json(['error' => 'udah ada orderan'], 400);
+                        }
                     }
 
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => $formattedErrors,
-                        'error_code' => 'INPUT_VALIDATION_ERROR',
-                    ], 422);
-                }
-                    $signature = $this->decrypt($request->signature);
-                    // dd($signature);
-
-                    if ($signature === false) {
+                    // Lanjutkan jika amount valid (minus)
+                } else {
+                    if (!$player || $request->signature == null || $player->is_play == null) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => [['status' => 'error', 'value' => 'access denied']],
-                            'error_code' => 'ACCESS_DENIED',
+                            'message' => [['status' => 'error', 'value' => 'you not playing, please play first']],
+                            'error_code' => 'NOT_PLAYING',
                         ], 404);
-                    } else {
-                        $amount = (int)$signature;
-                        if($request->delivery == "order") {
-                            // Cek jika amount tidak minus (positif atau 0)
-                            if($amount >= 0) {
-                                return response()->json([
-                                    'error' => 'Amount harus bernilai negatif (minus).'
-                                ], 400); // Mengembalikan HTTP status code 400 (Bad Request)
-                            }else{
-                                $key = md5($request->key);
-
-                                $codeExist = WalletKey::where('key', $key)->first();
-
-                                if (!$codeExist) {
-                                    $storeKey = WalletKey::create([
-                                        'player_id' => $playerId,
-                                        'key' => $key
-                                    ]);
-                                    $wallet = Wallet::create([
-                                        'player_id' => $playerId,
-                                        'amount' => $amount,
-                                        'currency_code' => "IDR",
-                                        // 'is_play' => false,
-                                    ]);
-
-                                    return response()->json([
-                                        'status' => 'success',
-                                        'message' => [['status' => 'success', 'value' => 'sucessfully order']]
-                                        // 'data' => $wallet,
-                                    ], 201);
-                                } else {
-                                    return response()->json(['error' => 'udah ada orderan'], 400);
-                                }
-
-                            }
-
-                            // Lanjutkan jika amount valid (minus)
-                        }else{
-                            if (!$player || $request->signature == null || $player->is_play == null) {
-                                return response()->json([
-                                    'status' => 'error',
-                                    'message' => [['status' => 'error', 'value' => 'you not playing, please play first']],
-                                    'error_code' => 'NOT_PLAYING',
-                                ], 404);
-                            }
-                            if($amount <= 0) {
-                                return response()->json([
-                                    'error' => 'Amount harus bernilai positif'
-                                ], 400); // Mengembalikan HTTP status code 400 (Bad Request)
-                            }else{
-                                $receivedHash = $request->key;
-
-                                // Plaintext yang ingin Anda verifikasi
-                                $plaintext = $player->is_play;
-
-                                // Menghasilkan hash MD5 dari plaintext yang Anda miliki
-                                $expectedHash = $plaintext;
-
-                                // Membandingkan hash yang diterima dengan hash yang diharapkan
-                                if ($receivedHash === $expectedHash) {
-                                    $player = Player::where('id', $playerId)->update([
-                                        'is_play' => null,
-                                    ]);
-                                    $wallet = Wallet::create([
-                                        'player_id' => $playerId,
-                                        'amount' => $amount,
-                                        'currency_code' => "IDR",
-                                        // 'is_play' => false,
-                                    ]);
-                                    $codeExist = WalletKey::where('key', $request->key)->first();
-                                    $codeExist->delete();
-
-                                    return response()->json([
-                                        'status' => 'success',
-                                        'message' => [['status' => 'success', 'value' => 'delivery has been successfull']]
-                                        // 'data' => $wallet,
-                                    ], 201);
-
-                                } else {
-                                    return response()->json([
-                                        'status' => 'error',
-                                        'message' => [['status' => 'error', 'value' => 'access denied']],
-                                        'error_code' => 'ACCESS_DENIED',
-                                    ], 404);
-                                }
-                        }
-
-
-
                     }
+                    if ($amount <= 0) {
+                        return response()->json([
+                            'error' => 'Amount harus bernilai positif'
+                        ], 400); // Mengembalikan HTTP status code 400 (Bad Request)
+                    } else {
+                        $receivedHash = $request->key;
 
+                        // Plaintext yang ingin Anda verifikasi
+                        $plaintext = $player->is_play;
+
+                        // Menghasilkan hash MD5 dari plaintext yang Anda miliki
+                        $expectedHash = $plaintext;
+
+                        // Membandingkan hash yang diterima dengan hash yang diharapkan
+                        if ($receivedHash === $expectedHash) {
+                            $player = Player::where('id', $playerId)->update([
+                                'is_play' => null,
+                            ]);
+                            $wallet = Wallet::create([
+                                'player_id' => $playerId,
+                                'amount' => $amount,
+                                'currency_code' => "IDR",
+                                // 'is_play' => false,
+                            ]);
+                            $codeExist = WalletKey::where('key', $request->key)->first();
+                            $codeExist->delete();
+                            Level::create([
+                                'player_id' => $playerId,
+                                'level' => $request->level,
+                            ]);
+
+                            return response()->json([
+                                'status' => 'success',
+                                'message' => [['status' => 'success', 'value' => 'delivery has been successfull']]
+                                // 'data' => $wallet,
+                            ], 201);
+                        } else {
+                            return response()->json([
+                                'status' => 'error',
+                                'message' => [['status' => 'error', 'value' => 'access denied']],
+                                'error_code' => 'ACCESS_DENIED',
+                            ], 404);
+                        }
+                    }
                 }
-
+            }
         } catch (\Exception $e) {
             dd($e);
             return response()->json(['error' => $e->getMessage()], 500);
@@ -211,24 +210,22 @@ class WalletController extends Controller
             $codeExist = WalletKey::where('key', $key)->first();
 
             if ($codeExist) {
-                if( $player->is_play != null){
+                if ($player->is_play != null) {
                     return response()->json(['error' => 'udah main'], 400);
-                }else{
+                } else {
 
-                $updatePlay = Player::where('id', $playerId)->update([
-                    'is_play' => $key,
-                ]);
+                    $updatePlay = Player::where('id', $playerId)->update([
+                        'is_play' => $key,
+                    ]);
 
-                return response()->json([
-                    'status' => 'success',
-                    'message' => $player->username . ' playing',
-                ], 200); // Mengubah status menjadi 200
-            }
-
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => $player->username . ' playing',
+                    ], 200); // Mengubah status menjadi 200
+                }
             } else {
 
                 return response()->json(['error' => 'belum order'], 400);
-
             }
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -244,12 +241,12 @@ class WalletController extends Controller
             $total_wallet_IDR = Wallet::where('player_id', $playerId)
                 ->where('currency_code', 'IDR')
                 ->sum('amount');
-                if($total_wallet_IDR >= 50000){
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => [['status' => 'error', 'value' => 'belum game over']],
-                    ], 404);
-                }
+            if ($total_wallet_IDR >= 50000) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => [['status' => 'error', 'value' => 'belum game over']],
+                ], 404);
+            }
 
             // Hitung berapa yang harus ditambahkan agar totalnya menjadi 500000
             $desired_total = 500000;
@@ -262,12 +259,12 @@ class WalletController extends Controller
                 'amount' => $amount, // amount sudah dihitung di atas
             ]);
             $total_wallet_update = Wallet::where('player_id', $playerId)
-            ->where('currency_code', 'IDR')
-            ->sum('amount');
+                ->where('currency_code', 'IDR')
+                ->sum('amount');
 
             return response()->json([
                 'status' => 'success',
-                'massage'=>'game over',
+                'massage' => 'game over',
                 'data' => $total_wallet_update,
             ], 201);
         } catch (\Exception $e) {
@@ -320,25 +317,26 @@ class WalletController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-    public function orderlist(){
+    public function orderlist()
+    {
         try {
             $playerId = Auth::id();
             $codeExist = WalletKey::where('player_id', $playerId)->get();
-            if($codeExist){
+            if ($codeExist) {
                 return response()->json([
                     'status' => 'success',
                     'data' => $codeExist,
                 ]);
-            }else{
+            } else {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'order not found',
                     'error_code' => 'ORDER_NOT_FOUND',
                 ], 404);
             }
-            } catch (\Exception $e) {
-                return response()->json(['error' => $e->getMessage()], 500);
-                }
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function update(Request $request, $id)

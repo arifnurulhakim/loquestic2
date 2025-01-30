@@ -64,7 +64,6 @@ class PlayerController extends Controller
                     'token' => $token,
                 ],
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -109,7 +108,6 @@ class PlayerController extends Controller
                     'token' => $token,
                 ],
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -150,12 +148,11 @@ class PlayerController extends Controller
                 'created_at' => now(),
             ]);
             Mail::to($request->email)->send(new SendCodeOtp($codeData->code));
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Verification email has been sent, please check your email',
-                    'data' => $existingPlayer,
-                ], 201);
-
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Verification email has been sent, please check your email',
+                'data' => $existingPlayer,
+            ], 201);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -188,7 +185,6 @@ class PlayerController extends Controller
             $token = JWTAuth::fromUser($user);
 
             return response()->json(compact('user', 'token'), 201);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e], 500);
         }
@@ -218,7 +214,6 @@ class PlayerController extends Controller
                 'status' => 'success',
                 'message' => 'Successfully logged out',
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -242,7 +237,6 @@ class PlayerController extends Controller
                 'status' => 'success',
                 'message' => 'Successfully logged out',
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -260,18 +254,24 @@ class PlayerController extends Controller
                 ], 401);
             }
 
+            $highestLevel = $user->levels()->max('level');
+
+            // Get the current level (last played level)
+            $currentLevel = $user->levels()->latest()->first();
+
             $userData = [
                 'id' => $user->id,
                 'username' => $user->username,
                 'email' => $user->email,
                 'phone_number' => $user->phone_number,
+                'highest_level' => $highestLevel,
+                'current_level' => $currentLevel ? $currentLevel->level : null,
             ];
 
             return response()->json([
                 'status' => 'success',
                 'data' => $userData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -298,7 +298,6 @@ class PlayerController extends Controller
                 'status' => 'success',
                 'data' => $userData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -425,7 +424,6 @@ class PlayerController extends Controller
                 'status' => 'error',
                 'message' => 'OTP is expired',
             ], 422);
-
         }
 
         $player = Player::firstWhere('email', $verification->email);
@@ -557,7 +555,7 @@ class PlayerController extends Controller
         // Simpan data ke database
         $this->saveToDatabase($data);
 
-        return response()->json( [ 'status' => 'success',  'message' => 'Data berhasil diimpor.']);
+        return response()->json(['status' => 'success',  'message' => 'Data berhasil diimpor.']);
     }
 
     private function importData($file)

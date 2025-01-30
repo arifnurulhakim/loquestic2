@@ -16,15 +16,14 @@ class CreateLevelsTable extends Migration
         Schema::create('levels', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('player_id');
-            $table->string('game_code', 10);
-            $table->integer('level');
-            $table->dateTime('log_time');
+            $table->unsignedBigInteger('level');
             $table->timestamps();
 
-            $table->foreign('game_code')->references('code')->on('games')->onUpdate('cascade');
-            $table->foreign('player_id')->references('id')->on('players')->onUpdate('cascade');
+            $table->foreign('player_id')->references('id')->on('players')->onDelete('cascade');
+            $table->foreign('level')->references('id')->on('levelings')->onDelete('cascade');
         });
     }
+
 
     /**
      * Reverse the migrations.

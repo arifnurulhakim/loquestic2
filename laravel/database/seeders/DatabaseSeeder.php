@@ -18,8 +18,36 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
-    \App\Models\Order::factory(10)->create();
-        
+
+        \App\Models\Currency::factory()->createMany(
+            [
+                [
+                    'name' => 'coin',
+                    'code' => 'COIN',
+                ],
+                [
+                    'name' => 'rupiah',
+                    'code' => 'IDR',
+                ]
+            ]
+        );
+
+        \App\Models\Leveling::factory()->createMany(
+            [
+                [
+                    'level_name' => 'Kota',
+                ],
+                [
+                    'level_name' => 'Provinsi',
+                ],
+                [
+                    'level_name' => 'Pulau',
+                ],
+                [
+                    'level_name' => 'Negara',
+                ],
+            ]
+        );
     }
 
     // public function run()

@@ -16,10 +16,10 @@ class CreateWalletsTable extends Migration
         Schema::create('wallets', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('player_id');
-            $table->string('currency');
+            $table->string('currency_code');
             $table->decimal('amount', 10, 2);
             $table->timestamps();
-
+            $table->string('label');
             $table->foreign('player_id')->references('id')->on('players')->onUpdate('cascade');
         });
     }

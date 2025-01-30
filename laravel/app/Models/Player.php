@@ -35,4 +35,9 @@ class Player extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    public function levels()
+    {
+        return $this->hasMany(Level::class);
+    }
 }
