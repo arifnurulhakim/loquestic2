@@ -265,7 +265,7 @@ class PlayerController extends Controller
                 'email' => $user->email,
                 'phone_number' => $user->phone_number,
                 'highest_level' => $highestLevel,
-                'current_level' => $currentLevel ? $currentLevel->level : null,
+                'current_level' => $currentLevel ? $currentLevel->level : 0,
             ];
 
             return response()->json([
